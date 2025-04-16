@@ -3,7 +3,7 @@
 #################################################################################
 
 PROJECT_NAME = cartool
-PYTHON_VERSION = 3.10
+PYTHON_VERSION = 3.12.3
 PYTHON_INTERPRETER = python
 
 #################################################################################
@@ -47,7 +47,7 @@ format:
 ## Set up Python interpreter environment
 .PHONY: create_environment
 create_environment:
-	@bash -c "if [ ! -z `which virtualenvwrapper.sh` ]; then source `which virtualenvwrapper.sh`; mkvirtualenv $(PROJECT_NAME) --python=$(PYTHON_INTERPRETER); else mkvirtualenv.bat $(PROJECT_NAME) --python=$(PYTHON_INTERPRETER); fi"
+	@bash -c "if [ ! -z `which virtualenvwrapper.sh` ]; then source `which virtualenvwrapper.sh`; mkvirtualenv $(PROJECT_NAME) --python3=$(PYTHON_INTERPRETER); else mkvirtualenv.bat $(PROJECT_NAME) --python3=$(PYTHON_INTERPRETER); fi"
 	@echo ">>> New virtualenv created. Activate with:\nworkon $(PROJECT_NAME)"
 	
 
