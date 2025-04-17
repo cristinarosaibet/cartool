@@ -1,5 +1,9 @@
 import numpy as np
 import pandas as pd
+import re
+import pandera as pa
+from dateparser import parse
+import sys
 
 
 def load_and_clean_bioprocess_data(path):
@@ -24,6 +28,7 @@ def clean_perfusion_data(df_perfusion):
     """
 
     df_perfusion = clean_strings(df_perfusion)
+
     # Get data from the dataframe
     time_independent_labels = {
         "Date": "Date",
@@ -64,7 +69,9 @@ def clean_perfusion_data(df_perfusion):
 
     df_perfusion = set_headers(time_dependent_labels, time_independent_labels, df_perfusion)
 
-    format_time_dependent_labels(time_dependent_labels, df_perfusion)
+    df_perfusion = merge_time_points_and_labels(time_dependent_labels, df_perfusion)
+    print(df_perfusion.columns)
+    df_perfusion = handle_date_column(df_perfusion)
 
 
 def set_headers(time_dependent_labels, time_independent_labels, df_perfusion):
@@ -74,7 +81,6 @@ def set_headers(time_dependent_labels, time_independent_labels, df_perfusion):
     # Set the first row as the header
     df_perfusion.columns = df_perfusion.iloc[0]
     df_perfusion.drop(index=0, inplace=True)
-    # df_perfusion.reset_index(drop=True, inplace=True)
 
     # Set columns name for labels more programmitcally friendly
     df_perfusion.rename(columns=time_independent_labels, inplace=True)
@@ -83,22 +89,33 @@ def set_headers(time_dependent_labels, time_independent_labels, df_perfusion):
     return df_perfusion
 
 
-def format_time_dependent_labels(time_dependent_labels, df_perfusion):
-    # select subset of time dependent labels
+def merge_time_points_and_labels(time_dependent_labels, df_perfusion):
+    df = df_perfusion.copy()
 
-    subset = df_perfusion[time_dependent_labels.values()].copy()
-    # confirm if they are numeric
-    subset.iloc[0] = subset.iloc[0].apply(lambda x: pd.to_numeric(x, errors="raise"))
+    # rename colummns based on dictionary
+    df.rename(columns=time_dependent_labels, inplace=True)
 
-    # Update the column names directly in the DataFrame
-    new_columns = subset.columns + "_D-" + subset.iloc[0].astype(str)
-    df_perfusion.rename(
-        columns=dict(zip(time_dependent_labels.values(), new_columns)), inplace=True
-    )
-    df_perfusion.drop(index=1, inplace=True)
-    df_perfusion.reset_index(drop=True, inplace=True)
+    # merge time points and labels
+    subset = df[time_dependent_labels.values()]
+    time_points = subset.iloc[0].to_numpy()
+    labels = subset.columns
 
-    return df_perfusion
+    if len(labels) == len(time_points):
+        new_columns = [f"{label}_D-{int(tp)}" for label, tp in zip(labels, time_points)]
+    else:
+        raise ValueError(
+            f"Number of labels ({len(labels)}) does not match number of time points ({len(time_points)})"
+        )
+
+    # apply new names to the selected columns
+    rename_mapping = dict(zip(labels, new_columns))
+    df.rename(columns=rename_mapping, inplace=True)
+
+    # drop the first row (which had the time point values)
+    df.drop(index=df.index[0], inplace=True)
+    df.reset_index(drop=True, inplace=True)
+
+    return df
 
 
 def clean_strings(df):
@@ -112,9 +129,62 @@ def clean_strings(df):
     df = df.map(lambda x: np.nan if isinstance(x, str) and "Media" in x else x).infer_objects(
         copy=False
     )
+
     df = df.replace("Not acquired", np.nan).infer_objects(copy=False)
     df = df.replace("-", np.nan).infer_objects(copy=False)
     df = df.replace("not acq", np.nan)
+
+    return df
+
+
+def handle_date_column(df):
+    df = df.copy()  # Avoid SettingWithCopyWarning
+
+    # Clean HTML and whitespace
+    df["cleaned"] = df["Date"].replace(r"<.*?>", "", regex=True).str.strip()
+
+    # Extract Run info
+    df["Run"] = df["cleaned"].str.extract(r"RUN\s*(\d+)", flags=re.IGNORECASE)[0]
+    df["Run"] = df["Run"].astype("Int64")  # allows for NaN-friendly integers
+
+    # Extract Donor info (overwrite only where new info is found)
+    new_donor = df["cleaned"].str.extract(r"Donor\s*(\d+)", flags=re.IGNORECASE)[0]
+    df["Donor"] = new_donor.combine_first(df["Donor"])
+
+    # Function to extract and format date ranges
+    def extract_dates_str(text):
+        text = str(text)
+        # Case 1: same month (add year)
+        match = re.search(r"(\d{1,2})\s*[-–]\s*(\d{1,2})\s*(\w+)", text)
+        if match:
+            d1, d2, month = match.groups()
+            start = parse(f"{d1} {month} 2024")
+            end = parse(f"{d2} {month} 2024")
+        else:
+            # Case 2: different months
+            match = re.search(r"(\d{1,2})\s*(\w+)\s*[-–]\s*(\d{1,2})\s*(\w+)", text)
+            if match:
+                d1, m1, d2, m2 = match.groups()
+                start = parse(f"{d1} {m1} 2024")
+                end = parse(f"{d2} {m2} 2024")
+            else:
+                return None
+
+        if start and end:
+            return f"{start.strftime('%Y-%m-%d')} to {end.strftime('%Y-%m-%d')}"
+        return None
+
+    # Apply to cleaned column
+    df["Date"] = df["cleaned"].apply(extract_dates_str)
+    df.drop(columns=["cleaned"], inplace=True)
+
+    # Move "Run" to right after "Date"
+    cols = df.columns.tolist()
+    if "Run" in cols:
+        cols.remove("Run")
+        insert_at = cols.index("Date") + 1
+        cols.insert(insert_at, "Run")
+        df = df[cols]
 
     return df
 
