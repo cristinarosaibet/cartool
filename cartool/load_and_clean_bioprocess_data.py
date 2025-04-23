@@ -4,9 +4,12 @@ import re
 import pandera as pa
 from dateparser import parse
 import sys
+import os
+
+pd.set_option("display.max_rows", None)  # Display all rows
 
 
-def load_and_clean_bioprocess_data(path):
+def load_and_clean_bioprocess_data(path, data_folder):
 
     # Load the data
     with open(path, "rb") as file:
@@ -70,8 +73,10 @@ def clean_perfusion_data(df_perfusion):
     df_perfusion = set_headers(time_dependent_labels, time_independent_labels, df_perfusion)
 
     df_perfusion = merge_time_points_and_labels(time_dependent_labels, df_perfusion)
-    print(df_perfusion.columns)
+
     df_perfusion = handle_date_column(df_perfusion)
+
+    return df_perfusion
 
 
 def set_headers(time_dependent_labels, time_independent_labels, df_perfusion):
@@ -114,7 +119,6 @@ def merge_time_points_and_labels(time_dependent_labels, df_perfusion):
     # drop the first row (which had the time point values)
     df.drop(index=df.index[0], inplace=True)
     df.reset_index(drop=True, inplace=True)
-
     return df
 
 
@@ -155,18 +159,18 @@ def handle_date_column(df):
     def extract_dates_str(text):
         text = str(text)
         # Case 1: same month (add year)
-        match = re.search(r"(\d{1,2})\s*[-–]\s*(\d{1,2})\s*(\w+)", text)
+        match = re.search(r"(\d{1,2})\s*[-–]\s*(\d{1,2})\s*(\w+)\s*(\d{4})", text)
         if match:
-            d1, d2, month = match.groups()
-            start = parse(f"{d1} {month} 2024")
-            end = parse(f"{d2} {month} 2024")
+            d1, d2, month, year = match.groups()
+            start = parse(f"{d1} {month} {year}")
+            end = parse(f"{d2} {month} {year}")
         else:
             # Case 2: different months
-            match = re.search(r"(\d{1,2})\s*(\w+)\s*[-–]\s*(\d{1,2})\s*(\w+)", text)
+            match = re.search(r"(\d{1,2})\s*(\w+)\s*[-–]\s*(\d{1,2})\s*(\w+)\s*(\d{4})", text)
             if match:
-                d1, m1, d2, m2 = match.groups()
-                start = parse(f"{d1} {m1} 2024")
-                end = parse(f"{d2} {m2} 2024")
+                d1, m1, d2, m2, year = match.groups()
+                start = parse(f"{d1} {m1} {year}")
+                end = parse(f"{d2} {m2} {year}")
             else:
                 return None
 
@@ -186,7 +190,30 @@ def handle_date_column(df):
         cols.insert(insert_at, "Run")
         df = df[cols]
 
+    df1 = create_non_available_run_tag(df)
+
     return df
+
+
+def create_non_available_run_tag(df_perfusion):
+
+    unique_dates = df_perfusion["Date"].unique()
+    runs = df_perfusion["Run"].unique().to_numpy()
+
+    for i, date in enumerate(unique_dates):
+        if df_perfusion.loc[df_perfusion["Date"] == date, "Run"].isna().all():
+            run_number = i + 1
+            while True:
+                if run_number in runs:
+                    # print(run_number)
+                    run_number += 1
+                else:
+                    runs = np.append(runs, run_number)
+                    break
+
+            df_perfusion.loc[df_perfusion["Date"] == date, "Run"] = run_number
+
+    return df_perfusion
 
 
 def main():
@@ -194,7 +221,8 @@ def main():
     Main function to execute the load and clean data process.
     """
     path = "data/processed/Main_Results_CARTool_2025-04-15.xlsx"
-    load_and_clean_bioprocess_data(path)
+    data_folder = "data/processed/"
+    load_and_clean_bioprocess_data(path, data_folder)
 
 
 if __name__ == "__main__":
