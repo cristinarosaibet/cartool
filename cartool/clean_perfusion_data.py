@@ -61,12 +61,12 @@ def clean_perfusion_data(df_perfusion):
     # add colummn for the type of info
     df_perfusion["Type"] = "Perfusion"
 
-    validate_data(df_perfusion, time_dependent_labels)
+    validate_and_transform_data(df_perfusion, time_dependent_labels)
 
     return df_perfusion
 
 
-def validate_data(df_perfusion, time_dependent_labels):
+def validate_and_transform_data(df_perfusion, time_dependent_labels):
     """
     Validate the perfusion data using pandera.
     """
@@ -105,17 +105,7 @@ def validate_data(df_perfusion, time_dependent_labels):
     for col in df_perfusion.columns:
         if pattern.match(col):
             # Try converting to numeric
-            coerced = pd.to_numeric(df_perfusion[col], errors="coerce")
-
-            # Find non-numeric values that were not originally NaN
-            non_numeric_mask = ~df_perfusion[col].isna() & coerced.isna()
-
-            if non_numeric_mask.any():
-                invalid_rows = df_perfusion[non_numeric_mask]
-                invalid_entries.append((col, invalid_rows.index.tolist()))
-                print(
-                    f"⚠️ Non-numeric values found in column '{col}' at rows: {invalid_rows.index.tolist()}"
-                )
+            df_perfusion[col] = pd.to_numeric(df_perfusion[col], errors="raise")
 
 
 def cast_df_to_schema_types(df, schema):
