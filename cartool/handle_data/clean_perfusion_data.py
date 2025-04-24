@@ -3,9 +3,11 @@ import pandas as pd
 import re
 from dateparser import parse
 import sys
+import os
+import json
 
 
-def clean_perfusion_data(df_perfusion):
+def clean_perfusion_data(df_perfusion, data_folder):
     """
     Clean the perfusion data by removing unnecessary columns and renaming others.
     """
@@ -51,80 +53,61 @@ def clean_perfusion_data(df_perfusion):
     }
 
     df_perfusion = set_headers(time_dependent_labels, time_independent_labels, df_perfusion)
-
     # merge time points and labels info into one column label
     df_perfusion = merge_time_points_and_labels(time_dependent_labels, df_perfusion)
-
     # split info of date column into run and donor
     df_perfusion = handle_date_column(df_perfusion)
-
     # add colummn for the type of info
     df_perfusion["Type"] = "Perfusion"
 
-    validate_and_transform_data(df_perfusion, time_dependent_labels)
+    df_perfusion = validate_and_transform_data(df_perfusion, time_dependent_labels, data_folder)
 
     return df_perfusion
 
 
-def validate_and_transform_data(df_perfusion, time_dependent_labels):
+def validate_and_transform_data(df_perfusion, time_dependent_labels, data_folder):
     """
     Validate the perfusion data using pandera.
     """
+    with open(os.path.join(data_folder, "variable_type_schema.json"), "r") as file:
+        schema = json.load(file)
 
-    # schema of the non-time dependent labels
-    schema = {
-        "Date": "string",
-        "Run": "Int64",
-        "Donor": "Int64",
-        "Static_run": "string",
-        "AMBR15_run": "string",
-        "Conditions": "string",
-        "Agitation_Strategy": "string",
-        "System": "string",
-        "Agitation": "string",
-        "Activation_reagent": "string",
-        "Activation_time": "string",
-        "Cells_per_Microbeads": "float",
-        "DO_activation": "float",
-        "DO_expansion": "float",
-        "Cytokine_supplementation": "string",
-        "Inoculum": "float",
-        "Type": "string",
-    }
-    df_perfusion = cast_df_to_schema_types(df_perfusion, schema)
+    df_perfusion = cast_df_to_schema_types(df_perfusion, schema, time_dependent_labels)
 
     # validate the time-dependent labels
-    valid_prefixes = set(time_dependent_labels.values())
 
-    # Pattern to match column names like 'VCD_D-10'
-    pattern = re.compile(rf"^({'|'.join(valid_prefixes)})_D-\d+$")
-
-    # Store invalid entries (optional)
-    invalid_entries = []
-    # Check each column that matches the pattern
-    for col in df_perfusion.columns:
-        if pattern.match(col):
-            # Try converting to numeric
-            df_perfusion[col] = pd.to_numeric(df_perfusion[col], errors="raise")
+    return df_perfusion
 
 
-def cast_df_to_schema_types(df, schema):
-    missing_cols = set(schema.keys()) - set(df.columns)
-    if missing_cols:
-        raise ValueError(f"Missing columns in DataFrame: {missing_cols}")
+def cast_df_to_schema_types(df, schema, time_dependent_labels):
 
     for col, dtype in schema.items():
         try:
-            if "int" in dtype.lower():
-                df[col] = pd.to_numeric(df[col], errors="raise").fillna(0).astype(dtype)
-            if "float" in dtype:
-                df[col] = pd.to_numeric(df[col], errors="raise").astype(dtype)
+            if col in time_dependent_labels.values():
+                cast_time_dependent_variable(df, col)
+                continue
             else:
-                df[col] = df[col].astype(dtype)
+                if "int" in dtype.lower():
+                    df[col] = pd.to_numeric(df[col], errors="raise").fillna(0).astype(dtype)
+                if "float" in dtype:
+                    df[col] = pd.to_numeric(df[col], errors="raise").astype(dtype)
+                else:
+                    df[col] = df[col].astype(dtype)
         except Exception as e:
             raise ValueError(f"Failed to convert column '{col}' to {dtype}: {e}")
 
     return df
+
+
+def cast_time_dependent_variable(df_perfusion, col_name):
+
+    # Pattern to match column names like 'VCD_D-10'
+    pattern = re.compile(rf"^({'|'.join(col_name)})_D-\d+$")
+    # Check each column that matches the pattern
+    for column in df_perfusion.columns:
+        if pattern.match(column):
+            # Try converting to numeric
+            df_perfusion[column] = pd.to_numeric(df_perfusion[column], errors="raise")
 
 
 def set_headers(time_dependent_labels, time_independent_labels, df_perfusion):
@@ -185,7 +168,8 @@ def handle_date_column(df):
     df["cleaned"] = df["Date"].replace(r"<.*?>", "", regex=True).str.strip()
 
     # Extract Run info
-    df["Run"] = df["cleaned"].str.extract(r"RUN\s*(\d+)", flags=re.IGNORECASE)[0]
+    run_info = df["cleaned"].str.extract(r"RUN\s*(\d+)", flags=re.IGNORECASE)[0]
+    df.insert(1, "Run", run_info)
     df["Run"] = df["Run"].astype("Int64")  # allows for NaN-friendly integers
 
     # Extract Donor info (overwrite only where new info is found)
@@ -219,21 +203,13 @@ def handle_date_column(df):
     df["Date"] = df["cleaned"].apply(extract_dates_str)
     df.drop(columns=["cleaned"], inplace=True)
 
-    # Move "Run" to right after "Date"
-    cols = df.columns.tolist()
-    if "Run" in cols:
-        cols.remove("Run")
-        insert_at = cols.index("Date") + 1
-        cols.insert(insert_at, "Run")
-        df = df[cols]
-
-    df1 = create_non_available_run_tag(df)
+    df = create_non_available_run_tag(df)
 
     return df
 
 
 def create_non_available_run_tag(df_perfusion):
-
+    # if there wasn't info about the run, we create a new one
     unique_dates = df_perfusion["Date"].unique()
     runs = df_perfusion["Run"].unique().to_numpy()
 

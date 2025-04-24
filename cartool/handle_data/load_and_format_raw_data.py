@@ -26,16 +26,3 @@ def unmerge_and_fill_cells(path_in, path_out):
                     cell.value = top_left_cell_value
 
     wb.save(path_out)
-
-
-def main():
-    """
-    Main function to load and format the data
-    """
-    path = "data/interim/Main_Results_CARTool_2025-04-15.xlsx"
-    path_out = "data/processed/Main_Results_CARTool_2025-04-15.xlsx"
-    unmerge_and_fill_cells(path_in=path, path_out=path_out)
-
-
-if __name__ == "__main__":
-    main()
