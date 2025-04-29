@@ -60,54 +60,61 @@ def clean_perfusion_data(df_perfusion, data_folder):
     # add colummn for the type of info
     df_perfusion["Type"] = "Perfusion"
 
-    df_perfusion = validate_and_transform_data(df_perfusion, time_dependent_labels, data_folder)
+    df_perfusion = validate_and_transform_data(df_perfusion, data_folder)
 
     return df_perfusion
 
 
-def validate_and_transform_data(df_perfusion, time_dependent_labels, data_folder):
+def validate_and_transform_data(df_perfusion, data_folder):
     """
     Validate the perfusion data using pandera.
     """
     with open(os.path.join(data_folder, "variable_type_schema.json"), "r") as file:
         schema = json.load(file)
 
-    df_perfusion = cast_df_to_schema_types(df_perfusion, schema, time_dependent_labels)
+    df_perfusion = cast_df_to_schema_types(df_perfusion, schema)
 
     # validate the time-dependent labels
 
     return df_perfusion
 
 
-def cast_df_to_schema_types(df, schema, time_dependent_labels):
-
-    for col, dtype in schema.items():
+def cast_df_to_schema_types(df, schema):
+    for col, properties in schema.items():
+        dtype = properties["type"]
+        time_dependent = properties["time_dependent"]
         try:
-            if col in time_dependent_labels.values():
-                cast_time_dependent_variable(df, col)
-                continue
+            if time_dependent:
+                cast_time_dependent_variable(df, col, dtype)
             else:
                 if "int" in dtype.lower():
                     df[col] = pd.to_numeric(df[col], errors="raise").fillna(0).astype(dtype)
-                if "float" in dtype:
+                elif "float" in dtype.lower():
                     df[col] = pd.to_numeric(df[col], errors="raise").astype(dtype)
                 else:
                     df[col] = df[col].astype(dtype)
         except Exception as e:
             raise ValueError(f"Failed to convert column '{col}' to {dtype}: {e}")
-
     return df
 
 
-def cast_time_dependent_variable(df_perfusion, col_name):
+def cast_time_dependent_variable(df, base_col_name, dtype):
+    # Pattern to match columns like "VCD_D-10", "Viability_D-8", etc.
+    pattern = re.compile(rf"^{re.escape(base_col_name)}_D-\d+$")
 
-    # Pattern to match column names like 'VCD_D-10'
-    pattern = re.compile(rf"^({'|'.join(col_name)})_D-\d+$")
-    # Check each column that matches the pattern
-    for column in df_perfusion.columns:
+    for column in df.columns:
         if pattern.match(column):
-            # Try converting to numeric
-            df_perfusion[column] = pd.to_numeric(df_perfusion[column], errors="raise")
+            try:
+                if "int" in dtype.lower():
+                    df[column] = pd.to_numeric(df[column], errors="raise").fillna(0).astype(dtype)
+                elif "float" in dtype.lower():
+                    df[column] = pd.to_numeric(df[column], errors="raise").astype(dtype)
+                else:
+                    df[column] = df[column].astype(dtype)
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to convert time-dependent column '{column}' to {dtype}: {e}"
+                )
 
 
 def set_headers(time_dependent_labels, time_independent_labels, df_perfusion):
