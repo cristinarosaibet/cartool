@@ -69,7 +69,7 @@ def validate_and_transform_data(df_perfusion, data_folder):
     """
     Validate the perfusion data using pandera.
     """
-    with open(os.path.join(data_folder, "variable_type_schema.json"), "r") as file:
+    with open(os.path.join(data_folder, "metadata.json"), "r") as file:
         schema = json.load(file)
 
     df_perfusion = cast_df_to_schema_types(df_perfusion, schema)
