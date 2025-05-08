@@ -57,9 +57,10 @@ def clean_perfusion_data(df_perfusion, data_folder):
     df_perfusion = merge_time_points_and_labels(time_dependent_labels, df_perfusion)
     # split info of date column into run and donor
     df_perfusion = handle_date_column(df_perfusion)
-    # add colummn for the type of info
-    df_perfusion["Type"] = "Perfusion"
 
+    # add colummn for the type of run
+    run_index = df_perfusion.columns.get_loc("Run")
+    df_perfusion.insert(run_index + 1, "Type", "Perfusion")
     # creat new columns
     df_perfusion = derive_new_columns(df_perfusion)
 
@@ -67,7 +68,11 @@ def clean_perfusion_data(df_perfusion, data_folder):
 
 
 def derive_new_columns(df_perfusion):
+    # get the index of "System" column so that we can use it to create new columns
+    system_index = df_perfusion.columns.get_loc("System")
+
     # Extract the working volume from AMBR15_run for STB systems
+    df_perfusion.insert(system_index + 1, "Volume", None)
     # For rows where System is STB, extract digits before "mL" from AMBR15_run
     mask = df_perfusion["System"] == "STB"
 
@@ -77,9 +82,9 @@ def derive_new_columns(df_perfusion):
     )
 
     # Extract the volume from static run for Static systems
-    map_nr_wells_volume = {48: 0.4, 24: 0.1}
+    map_nr_wells_volume = {"48": 0.4, "24": 0.1}
 
-    mask = df_perfusion["System"] == "static"
+    mask = df_perfusion["System"] == "Static"
 
     # Convert to string and extract the digits before "mL"
     df_perfusion.loc[mask, "Nr_of_Wells"] = (
@@ -96,30 +101,48 @@ def derive_new_columns(df_perfusion):
     df_perfusion.drop("Nr_of_Wells", axis=1, inplace=True)
 
     # Extract pH from the conditions and notes columns
+    df_perfusion.insert(system_index + 2, "pH_Strategy", None)
 
-    # Create a new column to mark rows where pH is mentioned
-    df_perfusion["pH_strategy"] = False  # Initialize as False
+    # default_value
+    df_perfusion["pH_Strategy"] = 7.3
 
-    # Check 'conditions' column for "pH"
-
+    # Mask for "pH" in 'Conditions'
     mask_conditions = (
-        df_perfusion["Conditions"].astype(str).str.contains("pH", case=False, na=False)
+        df_perfusion["Conditions"]
+        .astype(str)
+        .str.contains(r"\bpH\b", case=False, na=False, regex=True)
     )
-    df_perfusion.loc[mask_conditions, "pH_strategy"] = True
+    df_perfusion.loc[mask_conditions, "pH_Strategy"] = df_perfusion.loc[
+        mask_conditions, "Conditions"
+    ]
 
-    mask_notes = df_perfusion["Notes"].astype(str).str.contains("pH", case=False, na=False)
-    df_perfusion.loc[mask_notes, "pH_strategy"] = True
+    # Mask for "pH" in 'Notes'
+    mask_notes = (
+        df_perfusion["Notes"].astype(str).str.contains(r"\bpH\b", case=False, na=False, regex=True)
+    )
 
-    # Count how many rows were identified
-    num_ph_rows = df_perfusion["pH_strategy"].sum()
-    print(f"Found {num_ph_rows} rows with pH mentioned that need manual review")
+    df_perfusion.loc[mask_notes, "pH_Strategy"] = df_perfusion.loc[mask_notes, "Notes"]
 
-    # Get just the rows that need manual pH review
-    rows_to_review = df_perfusion[df_perfusion["pH_strategy"] == True]
+    # Count and preview
+    num_ph_rows = df_perfusion["pH_Strategy"].dropna().ne(7.3).sum()
+    print(f"Found {num_ph_rows} rows with 'pH' mentioned needing manual review.")
 
     # Create feeding strategy column
-    df_perfusion["Feeding_Strategy"] = None
-    print("Feeding strategy needs to be added manually")
+    df_perfusion.insert(system_index + 3, "Feeding_Strategy", None)
+
+    # Step 1: Split the range into two new columns
+    df_perfusion[["start_date", "end_date"]] = df_perfusion["Date"].str.split(" to ", expand=True)
+
+    # Step 2: Convert to datetime
+    df_perfusion["end_date"] = pd.to_datetime(df_perfusion["end_date"])
+    df_perfusion["start_date"] = pd.to_datetime(df_perfusion["start_date"])
+
+    # Step 3: Filter rows where end_date is greater than or equal to 2023-09-01
+    df_perfusion["Feeding_Strategy"] = np.where(
+        df_perfusion["end_date"] >= pd.Timestamp("2023-09-01"), "A", None
+    )
+    print("Some rows of Feeding strategy column need to be added manually")
+    df_perfusion.drop(columns=["start_date", "end_date"], inplace=True)
 
     return df_perfusion
 
