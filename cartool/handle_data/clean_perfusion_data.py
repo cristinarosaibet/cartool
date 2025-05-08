@@ -18,18 +18,18 @@ def clean_perfusion_data(df_perfusion, data_folder):
     time_independent_labels = {
         "Date": "Date",
         "Donor": "Donor",
-        "Static run": "Static_run",
-        "ambr15 run": "AMBR15_run",
+        "Static run": "Static_Run",
+        "ambr15 run": "AMBR15_Run",
         "Conditions": "Conditions",
         "Agitation_Strategy": "Agitation_Strategy",
         "System": "System",
         "Agitation": "Agitation",
-        "Activation reagent": "Activation_reagent",
-        "Activation time": "Activation_time",
+        "Activation reagent": "Activation_Reagent",
+        "Activation time": "Activation_Time",
         "Cells/Microbeads": "Cells_per_Microbeads",
-        "DO - activation": "DO_activation",
-        "DO - expansion": "DO_expansion",
-        "Cytokine supplementation": "Cytokine_supplementation",
+        "DO - activation": "DO_Activation",
+        "DO - expansion": "DO_Expansion",
+        "Cytokine supplementation": "Cytokine_Supplementation",
         "Inoculum (M cell/mL)": "Inoculum",
     }
 
@@ -60,61 +60,68 @@ def clean_perfusion_data(df_perfusion, data_folder):
     # add colummn for the type of info
     df_perfusion["Type"] = "Perfusion"
 
-    df_perfusion = validate_and_transform_data(df_perfusion, data_folder)
+    # creat new columns
+    df_perfusion = derive_new_columns(df_perfusion)
 
     return df_perfusion
 
 
-def validate_and_transform_data(df_perfusion, data_folder):
-    """
-    Validate the perfusion data using pandera.
-    """
-    with open(os.path.join(data_folder, "metadata.json"), "r") as file:
-        schema = json.load(file)
+def derive_new_columns(df_perfusion):
+    # Extract the working volume from AMBR15_run for STB systems
+    # For rows where System is STB, extract digits before "mL" from AMBR15_run
+    mask = df_perfusion["System"] == "STB"
 
-    df_perfusion = cast_df_to_schema_types(df_perfusion, schema)
+    # Convert to string and extract the digits before "mL"
+    df_perfusion.loc[mask, "Volume"] = (
+        df_perfusion.loc[mask, "AMBR15_Run"].astype(str).str.extract(r"(\d+\.?\d*)").iloc[:, 0]
+    )
 
-    # validate the time-dependent labels
+    # Extract the volume from static run for Static systems
+    map_nr_wells_volume = {48: 0.4, 24: 0.1}
+
+    mask = df_perfusion["System"] == "static"
+
+    # Convert to string and extract the digits before "mL"
+    df_perfusion.loc[mask, "Nr_of_Wells"] = (
+        df_perfusion.loc[mask, "Static_Run"]
+        .astype(str)
+        .str.extract(r"(\d+)(?=\s*-?\s*(?:well|wp))")
+        .iloc[:, 0]
+    )
+
+    df_perfusion.loc[mask, "Volume"] = (
+        df_perfusion.loc[mask, "Nr_of_Wells"].astype(str).map(map_nr_wells_volume)
+    )
+
+    df_perfusion.drop("Nr_of_Wells", axis=1, inplace=True)
+
+    # Extract pH from the conditions and notes columns
+
+    # Create a new column to mark rows where pH is mentioned
+    df_perfusion["pH_strategy"] = False  # Initialize as False
+
+    # Check 'conditions' column for "pH"
+
+    mask_conditions = (
+        df_perfusion["Conditions"].astype(str).str.contains("pH", case=False, na=False)
+    )
+    df_perfusion.loc[mask_conditions, "pH_strategy"] = True
+
+    mask_notes = df_perfusion["Notes"].astype(str).str.contains("pH", case=False, na=False)
+    df_perfusion.loc[mask_notes, "pH_strategy"] = True
+
+    # Count how many rows were identified
+    num_ph_rows = df_perfusion["pH_strategy"].sum()
+    print(f"Found {num_ph_rows} rows with pH mentioned that need manual review")
+
+    # Get just the rows that need manual pH review
+    rows_to_review = df_perfusion[df_perfusion["pH_strategy"] == True]
+
+    # Create feeding strategy column
+    df_perfusion["Feeding_Strategy"] = None
+    print("Feeding strategy needs to be added manually")
 
     return df_perfusion
-
-
-def cast_df_to_schema_types(df, schema):
-    for col, properties in schema.items():
-        dtype = properties["type"]
-        time_dependent = properties["time_dependent"]
-        try:
-            if time_dependent:
-                cast_time_dependent_variable(df, col, dtype)
-            else:
-                if "int" in dtype.lower():
-                    df[col] = pd.to_numeric(df[col], errors="raise").fillna(0).astype(dtype)
-                elif "float" in dtype.lower():
-                    df[col] = pd.to_numeric(df[col], errors="raise").astype(dtype)
-                else:
-                    df[col] = df[col].astype(dtype)
-        except Exception as e:
-            raise ValueError(f"Failed to convert column '{col}' to {dtype}: {e}")
-    return df
-
-
-def cast_time_dependent_variable(df, base_col_name, dtype):
-    # Pattern to match columns like "VCD_D-10", "Viability_D-8", etc.
-    pattern = re.compile(rf"^{re.escape(base_col_name)}_D-\d+$")
-
-    for column in df.columns:
-        if pattern.match(column):
-            try:
-                if "int" in dtype.lower():
-                    df[column] = pd.to_numeric(df[column], errors="raise").fillna(0).astype(dtype)
-                elif "float" in dtype.lower():
-                    df[column] = pd.to_numeric(df[column], errors="raise").astype(dtype)
-                else:
-                    df[column] = df[column].astype(dtype)
-            except Exception as e:
-                raise ValueError(
-                    f"Failed to convert time-dependent column '{column}' to {dtype}: {e}"
-                )
 
 
 def set_headers(time_dependent_labels, time_independent_labels, df_perfusion):
