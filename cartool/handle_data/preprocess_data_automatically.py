@@ -15,7 +15,7 @@ from load_and_format_raw_data import unmerge_and_fill_cells
 from clean_perfusion_data import clean_perfusion_data
 
 
-def process_data(date="2025-04-15"):
+def process_data(date="2025-05-08"):
     processed_data_folder = "data/processed/"
     interim_data = f"data/interim/Main_Results_CARTool_{date}.xlsx"
     processed_data = f"{processed_data_folder}Main_Results_CARTool_{date}.xlsx"

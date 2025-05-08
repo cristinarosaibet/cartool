@@ -1,5 +1,5 @@
 """
-Validate and transform data according to the metadata schema dfined in JSON file.
+Validate and transform data according to the metadata schema defined in JSON file.
 currently supports perfusion data
 
 """

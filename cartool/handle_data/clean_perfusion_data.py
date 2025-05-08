@@ -37,6 +37,7 @@ def clean_perfusion_data(df_perfusion, data_folder):
         "Viable cell density (cell/mL)": "VCD",
         "Viability (%)": "Viability",
         "Lactate Concentration": "Lac",
+        "Glucose Concentration": "Glc",
         "CD25+ %": "CD25",
         "CD69+ %": "CD69",
         "PD-1+ %": "PD-1",
