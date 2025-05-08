@@ -7,9 +7,14 @@ currently supports perfusion data
 import json
 import pandas as pd
 import numpy as np
+import os
+import re
 
 
-def validate_and_transform_data(df_perfusion, data_folder):
+def validate_and_transform_data(data_folder):
+
+    with open(data_folder + "perfusion_data.csv", "r") as file:
+        df_perfusion = pd.read_csv(file, sep=",", header=0)
 
     with open(os.path.join(data_folder, "metadata.json"), "r") as file:
         schema = json.load(file)
@@ -18,20 +23,16 @@ def validate_and_transform_data(df_perfusion, data_folder):
     pattern = re.compile(r"^(.+)_D-\d+$")
 
     for col in df_perfusion.columns:
-        # check if column exists in the schema
-        if col not in schema.keys():
-            print(f"Column '{col}' is not in the schema.")
-            continue
+        match = pattern.match(col)
+        # if the column is time-dependent
+        if match:
+            base_col_name = match.group(1)
+            if base_col_name not in schema:
+                raise ValueError(f"Column '{base_col_name}' is not in the schema.")
+        # if is not time_depedent
         else:
-            match = pattern.match(col)
-            # if the column is time-dependent
-            if match:
-                base_col_name = match.group(1)
-                if base_col_name not in schema:
-                    raise ValueError(f"Column '{base_col_name}' is not in the schema.")
-            else:
-                if col not in schema:
-                    raise ValueError(f"Column '{col}' is not in the schema.")
+            if col not in schema:
+                raise ValueError(f"Column '{col}' is not in the schema.")
 
     df_perfusion = cast_df_to_schema_types(df_perfusion, schema)
 
@@ -76,3 +77,8 @@ def cast_time_dependent_variable(df, base_col_name, dtype):
                 raise ValueError(
                     f"Failed to convert time-dependent column '{column}' to {dtype}: {e}"
                 )
+
+
+if __name__ == "__main__":
+    data_folder = "data/processed/"
+    validate_and_transform_data(data_folder)
