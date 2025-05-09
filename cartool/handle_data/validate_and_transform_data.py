@@ -36,7 +36,8 @@ def validate_and_transform_data(data_folder, references_folder):
 
     df_perfusion = cast_df_to_schema_types(df_perfusion, schema)
 
-    return df_perfusion
+    with open(data_folder + "perfusion_data.csv", "w") as file:
+        df_perfusion.to_csv(file, sep=",", index=False)
 
 
 def cast_df_to_schema_types(df, schema):
@@ -53,6 +54,11 @@ def cast_df_to_schema_types(df, schema):
                     df[col] = pd.to_numeric(df[col], errors="raise").fillna(0).astype(dtype)
                 elif "float" in dtype.lower():
                     df[col] = pd.to_numeric(df[col], errors="raise").astype(dtype)
+                elif "string" in dtype.lower():
+                    if col != "pH_Strategy":
+                        df[col] = df[col].astype(dtype, errors="raise").str.lower()
+                    else:
+                        df[col] = df[col].astype(dtype, errors="raise")
                 else:
                     df[col] = df[col].astype(dtype, errors="raise")
         except Exception as e:
