@@ -1,5 +1,11 @@
+# ppt report
+*.pptx
+*.ppt
+*.pptm
+
 # Data
 /data/
+data
 
 # Mac OS-specific storage files
 .DS_Store
@@ -183,4 +189,4 @@ cython_debug/
 .ruff_cache/
 
 # PyPI configuration file
-.pypirc
+.pypircdata/

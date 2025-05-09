@@ -36,8 +36,8 @@ def load_and_clean_bioprocess_data(path, output_folder):
     df_perfusion_cleaned = clean_perfusion_data(df_perfusion, output_folder)
     output_path = os.path.join(output_folder, "perfusion_data.csv")
 
-    with open(output_path, "w") as file:
-        df_perfusion_cleaned.to_csv(file, index=False)
+    with open(output_path, "wb") as file:
+        df_perfusion_cleaned.to_csv(file, index=False, sep=",")
 
 
 if __name__ == "__main__":
