@@ -105,7 +105,8 @@ def derive_new_columns(df_perfusion):
     df_perfusion.insert(system_index + 2, "pH_Strategy", None)
 
     # default_value
-    df_perfusion["pH_Strategy"] = 7.3
+    default_pH = 7.3
+    df_perfusion["pH_Strategy"] = default_pH
 
     # Mask for "pH" in 'Conditions'
     mask_conditions = (
@@ -125,7 +126,7 @@ def derive_new_columns(df_perfusion):
     df_perfusion.loc[mask_notes, "pH_Strategy"] = df_perfusion.loc[mask_notes, "Notes"]
 
     # Count and preview
-    num_ph_rows = df_perfusion["pH_Strategy"].dropna().ne(7.3).sum()
+    num_ph_rows = df_perfusion["pH_Strategy"].dropna().ne(default_pH).sum()
     print(f"Found {num_ph_rows} rows with 'pH' mentioned needing manual review.")
 
     # Create feeding strategy column

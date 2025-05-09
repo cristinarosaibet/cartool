@@ -11,12 +11,12 @@ import os
 import re
 
 
-def validate_and_transform_data(data_folder):
+def validate_and_transform_data(data_folder, references_folder):
 
     with open(data_folder + "perfusion_data.csv", "r") as file:
         df_perfusion = pd.read_csv(file, sep=",", header=0)
 
-    with open(os.path.join(data_folder, "metadata.json"), "r") as file:
+    with open(references_folder + "metadata.json", "r") as file:
         schema = json.load(file)
 
     # Validate the schema, check if the columns are in the schema
@@ -81,4 +81,5 @@ def cast_time_dependent_variable(df, base_col_name, dtype):
 
 if __name__ == "__main__":
     data_folder = "data/processed/"
-    validate_and_transform_data(data_folder)
+    references_folder = "references/"
+    validate_and_transform_data(data_folder, references_folder)

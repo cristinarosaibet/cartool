@@ -1,0 +1,47 @@
+{
+    "Date": { "source": "raw", "type": "string", "time_dependent": false, "role": "condition", "unit": "dimensionless" },
+    "Run": { "source": "raw_and_preprocessing", "type": "Int64", "time_dependent": false, "role": "condition", "unit": "dimensionless" },
+    "Donor": { "source": "raw", "type": "Int64", "time_dependent": false, "role": "condition", "unit": "dimensionless" },
+    "Static_Run": { "source":"raw", "type": "string", "time_dependent": false, "role": "condition", "unit": "dimensionless" },
+    "AMBR15_Run": { "source":"raw","type": "string", "time_dependent": false, "role": "condition", "unit": "dimensionless" },
+    "Notes": { "source":"raw","type": "string", "time_dependent": false, "role": "condition", "unit": "dimensionless" },
+    "Conditions": { "source":"raw","type": "string", "time_dependent": false, "role": "condition", "unit": "dimensionless" },
+    "Agitation_Strategy": { "source":"raw", "type": "string", "time_dependent": false, "role": "condition", "unit": "dimensionless" },
+    "System": { "source":"raw", "type": "string", "time_dependent": false, "role": "condition", "unit": "dimensionless" },
+    "Agitation": { "source":"raw","type": "string", "time_dependent": false, "role": "condition", "unit": "dimensionless" },
+    "Activation_Reagent": { "source":"raw","type": "string", "time_dependent": false, "role": "condition", "unit": "dimensionless" },
+    "Activation_Time": { "source":"raw","type": "string", "time_dependent": false, "role": "condition", "unit": "days" },
+    "Cells_per_Microbeads": { "source":"raw","type": "float", "time_dependent": false, "role": "condition", "unit": "cells/bead" },
+    "DO_Activation": { "source":"raw","type": "float", "time_dependent": false, "role": "condition", "unit": "%" },
+    "DO_Expansion": { "source":"raw","type": "float", "time_dependent": false, "role": "condition", "unit": "%" },
+    "Cytokine_Supplementation": { "source":"raw","type": "string", "time_dependent": false, "role": "condition", "unit": "dimensionless" },
+    "Inoculum": { "source":"raw","type": "float", "time_dependent": false, "role": "condition", "unit": "M cells/mL" },
+    "Volume": { "source":"preprocessing","type": "float", "time_dependent": false, "role": "condition", "unit": "mL"},
+    "Feeding_Strategy": { "source":"raw","type": "string", "time_dependent": false, "role": "condition", "unit": "dimensionless" },
+    "pH_Strategy": { "source":"raw","type": "string", "time_dependent": false, "role": "condition", "unit": "dimensionless" },
+
+    "Type": {"source":"preprocessing",  "type": "string", "time_dependent": false, "role": "condition", "unit": "dimensionless" },
+    
+    "VCD": { "source":"raw","type": "float", "time_dependent": true, "role": "output", "unit": "cells/mL" },
+    "Viability": { "source":"raw","type": "float", "time_dependent": true, "role": "output", "unit": "%" },
+    "Lac": { "source":"raw","type": "float", "time_dependent": true, "role": "output", "unit": "mM" },
+    "Glc": { "source":"raw","type": "float", "time_dependent": true, "role": "output", "unit": "mM" },
+    
+    "CD25": { "source":"raw","type": "float", "time_dependent": true, "role": "output", "unit": "%" },
+    "CD69": { "source":"raw","type": "float", "time_dependent": true, "role": "output", "unit": "%" },
+    "PD-1": { "source":"raw","type": "float", "time_dependent": true, "role": "output", "unit": "%" },
+    "TIM-3": { "source":"raw","type": "float", "time_dependent": true, "role": "output", "unit": "%" },
+    "LAG-3": { "source":"raw","type": "float", "time_dependent": true, "role": "output", "unit": "%" },
+    
+    "Naive_Memory": {"source":"raw", "type": "float", "time_dependent": true, "role": "output", "unit": "%" },
+    "Central_Memory": {"source":"raw", "type": "float", "time_dependent": true, "role": "output", "unit": "%" },
+    "Effector_Memory": {"source":"raw", "type": "float", "time_dependent": true, "role": "output", "unit": "%" },
+    "Effector": { "source":"raw","type": "float", "time_dependent": true, "role": "output", "unit": "%" },
+    
+    "IFN-y": { "source":"raw","type": "float", "time_dependent": true, "role": "output", "unit": "%" },
+    "TNF-a": {"source":"raw", "type": "float", "time_dependent": true, "role": "output", "unit": "%" },
+    "IFN-y_TNF-a": {"source":"raw", "type": "float", "time_dependent": true, "role": "output", "unit": "%" },
+    "CD4_CD8_ratio": { "source":"raw","type": "float", "time_dependent": true, "role": "output", "unit": "ratio" }
+
+
+}
